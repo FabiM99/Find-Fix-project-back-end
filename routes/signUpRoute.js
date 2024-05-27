@@ -1,15 +1,30 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const Joi = require('joi');
+
+const schema = Joi.object({
+  nome: Joi.string().required(),
+  cognome: Joi.string().required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+  email_marketing: Joi.boolean().required(),
+});
 
 const signUpRoute = {
-  path: "/api/registrati",
+  path: "/api/registrazione/cliente",
   method: "post",
   handler: async (req, res) => {
-    const { nome, cognome, email, password, emailMarketing } = req.body;
+    const { nome, cognome, email, password, email_marketing } = req.body;
+    
+     // Validazione dei dati con Joi
+     const { error } = schema.validate({ nome, cognome, email, password, email_marketing });
+     if (error) {
+       return res.status(400).json({ error: error.details[0].message });
+     }
 
     // Converti il valore del campo emailMarketing in un valore booleano
-    const emailMarketingValue = emailMarketing === 'true';
+    const emailMarketingValue = email_marketing ||'false';
 
     try {
       // Controlla se l'utente esiste già
@@ -24,7 +39,7 @@ const signUpRoute = {
       const connection = await pool.getConnection();
 
       // Inserisce il nuovo utente nella tabella users per i clienti
-      const sqlInsertUser = 'INSERT INTO users (nome, cognome, email, password, email_marketing, user_type) VALUES (?, ?, ?, ?, ?, ?)'
+      const sqlInsertUser = 'INSERT INTO users (nome, cognome, email, password, email_marketing, user_type) VALUES (?, ?, ?, ?, ?, ?)';
       const insertUserResult = await pool.query(sqlInsertUser, [nome, cognome, email, hashedPassword,  emailMarketingValue, 'cliente']);
 
        // Rilascia la connessione
@@ -33,17 +48,22 @@ const signUpRoute = {
         // Ottieni l'ID del nuovo utente
       const userId = insertUserResult.insertId;
 
-        const token = jwt.sign({ userId, nome, cognome, email }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
+         jwt.sign({ userId, nome, cognome, email }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
           if(err){
+            console.error('Errore durante la generazione del token JWT:', err);
             return res.status(500).json({ error: 'Si è verificato un errore durante la generazione del token JWT' });
           }
-          res.status(201).json({ message: 'Dati inseriti correttamente', token });
+          res.status(201).json({ message: 'Dati inseriti correttamente', token: token });
         });
 
       
     } catch (error) {
       console.error('Errore durante l\'inserimento dei dati:',error);
-      res.status(500).json({ error: 'Si è verificato un errore durante l\'inserimento dei dati' }); // Errore del server
+      if (error.code === 'ER_DUP_ENTRY') {
+        res.status(409).json({ error: 'Email già in uso' });
+      } else {
+        res.status(500).json({ error: 'Si è verificato un errore durante l\'inserimento dei dati' }); // Errore del server
+      }
     }
   }
 };
