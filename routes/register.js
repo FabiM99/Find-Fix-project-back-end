@@ -7,6 +7,7 @@ const registerProSchema = Joi.object({
   nome: Joi.string().required(),
   cognome: Joi.string().required(),
   città: Joi.string().required(),
+  provincia: Joi.string().required(),
   email: Joi.string().email().required(),
   password: Joi.string().required(),
   telefono: Joi.string(),
