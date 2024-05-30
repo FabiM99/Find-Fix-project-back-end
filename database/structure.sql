@@ -7,44 +7,49 @@ CREATE TABLE users (
     telefono VARCHAR(15),
     user_type ENUM('cliente', 'professionista') NOT NULL,
     email_marketing BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- the date when the user was created
 );
 
 
 CREATE TABLE professionals (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    nome_azienda VARCHAR(100) NOT NULL,
+    user_id INT NOT NULL, --reference the corresponding user in the "users" table
+    nome_azienda VARCHAR(100),
     p_iva VARCHAR(50) NOT NULL,
     codiceFiscale VARCHAR(50) NOT NULL,
     categoria_servizi VARCHAR(100) NOT NULL,
     città VARCHAR(100) NOT NULL,
     provincia VARCHAR(100) NOT NULL,
     descrizioneProfessionista TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE --ensures that the professional record is linked to a valis user. --on delete cascade means that id the user is deleted, their associated professional record is also deleted.
 );
 
 CREATE TABLE profile_images (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY, --unique identifier for each profile image
     user_id INT NOT NULL,
-    filename VARCHAR(255) NOT NULL,
-    path VARCHAR(255) NOT NULL,
+    profilePhotoName VARCHAR(255),
+    profilePhotoPath VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE abbonamento_prezzo (
+  tipo ENUM('mensile', 'annuale') PRIMARY KEY, -- La colonna 'tipo' diventa la chiave primaria
+  costo DECIMAL(10, 2) NOT NULL,
+  INDEX tipo_index (tipo) 
+);
+
 CREATE TABLE abbonamento (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,  -- Foreign key to users table
+   professional_id INT NOT NULL, -- References the corresponding user in the professional table
   tipo ENUM('mensile', 'annuale') NOT NULL,
   inizio_abbonamento DATE,  --metto senza not null perche ci serviera al pagamento
   fine_abbonamento DATE, --metto senza not null perche ci serviera al pagamento 
-  FOREIGN KEY (user_id, tipo) REFERENCES subscription_prices(tipo, costo)  -- Foreign key referencing tipo
+  FOREIGN KEY (professional_id) REFERENCES professionals(id) ON DELETE CASCADE,
+  FOREIGN KEY ( tipo) REFERENCES abbonamento_prezzo(tipo)  -- Foreign key referencing tipo
   ON DELETE CASCADE
 );
 
-CREATE TABLE abbonamento_prezzo (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  tipo ENUM('mensile', 'annuale') NOT NULL,
-  costo DECIMAL(10, 2) NOT NULL
-);
+
+
+--non è necessario aggiungere una chiave esterna dalla tabella abbonamento_prezzo alla tabella abbonamento. Le tabelle abbonamento e abbonamento_prezzo sono collegate attraverso la colonna tipo nella tabella abbonamento che funge da riferimento per il tipo di abbonamento e il relativo costo.
