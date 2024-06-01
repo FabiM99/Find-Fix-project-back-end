@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const Joi = require('joi');
+require('dotenv').config();
 
 // Schema di validazione dei dati della richiesta di login
 const loginSchema = Joi.object({

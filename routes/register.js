@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
+require('dotenv').config();
 
 const registerProSchema = Joi.object({
   nome: Joi.string().required(),
