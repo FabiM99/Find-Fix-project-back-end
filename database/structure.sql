@@ -18,7 +18,7 @@ CREATE TABLE professionals (
     p_iva VARCHAR(50) NOT NULL,
     codiceFiscale VARCHAR(50) NOT NULL,
     categoria_servizi VARCHAR(100) NOT NULL,
-    città VARCHAR(100) NOT NULL,
+    citta VARCHAR(100) NOT NULL,
     provincia VARCHAR(100) NOT NULL,
     descrizioneProfessionista TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE --ensures that the professional record is linked to a valis user. --on delete cascade means that id the user is deleted, their associated professional record is also deleted.

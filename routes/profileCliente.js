@@ -1,7 +1,7 @@
-const express = require('express');
+
 const pool = require('../config/db');
 const authenticateToken = require('../middleware/authenticate');
-const router = express.Router();
+
 
 //endpoint per ottenere i dati del profilo utente
 //Router: È utile per organizzare e modulare il codice dell'applicazione.

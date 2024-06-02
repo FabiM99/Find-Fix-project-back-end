@@ -6,7 +6,7 @@ function authenticateToken(req, res, next) {
 
   if (!token) {
     console.log('Token mancante');
-    return res.sendStatus(401);
+    return res.sendStatus(401).json({ message: 'Token non fornito' });;
   }
 
   console.log('Token ricevuto:', token); // Log per il debug

@@ -8,34 +8,37 @@ require('dotenv').config();
 // Configura multer per salvare le immagini
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/') // cartella dove verranno salvate le immagini
+    cb(null, 'uploads/'); // cartella dove verranno salvate le immagini
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname)
+     // Specifica il nome del file, aggiungendo un timestamp per renderlo unico
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
 
 const upload = multer({ storage: storage });
 
+// Definisce lo schema di validazione usando Joi
 const registerProSchema = Joi.object({
   nome: Joi.string().required(),
   cognome: Joi.string().required(),
-  città: Joi.string().required(),
+  citta: Joi.string().required(), 
   email: Joi.string().email().required(),
   password: Joi.string().required(),
   provincia: Joi.string().required(),
-  telefono: Joi.number(),
+  telefono: Joi.string().optional(),
   categoria_servizi: Joi.string().required(),
-  nome_azienda: Joi.string().optional(),
+  nome_azienda: Joi.string().allow(null, '').optional(),
   p_iva: Joi.string().required(),
   codiceFiscale: Joi.string().required(),
   descrizioneProfessionista: Joi.string().required(),
   tipo_abbonamento: Joi.string().valid('mensile', 'annuale', 'nessuno').default('nessuno'),
-  profilePhotoName: Joi.string().optional(),
-  profilePhotoPath: Joi.string().optional(),
+  profilePhotoName: Joi.string().optional().allow(null, ''),
+  profilePhotoPath: Joi.string().optional().allow(null, ''),
   costo: Joi.number().required(),
 });
 
+// Rotta per registrare un professionista
 const registerPro = {
   path: "/api/registratazione/professionale",
   method: "post",
@@ -45,21 +48,26 @@ const registerPro = {
       if (err) {
         return res.status(500).json({ error: 'Errore durante il caricamento del file' });
       }
+      console.log('File caricato:', req.file); // Log per debug
 
+      // Estrazione dei dati dal corpo della richiesta
       const {
-        nome, cognome, città, email, password, provincia, telefono, categoria_servizi,
+        nome, cognome, citta, email, password, provincia, telefono, categoria_servizi,
         nome_azienda, p_iva, codiceFiscale, descrizioneProfessionista, tipo_abbonamento, costo,
       } = req.body;
+       // Se il file è stato caricato, estrai il nome del file e il percorso
       const profilePhotoName = req.file ? req.file.filename : null;
       const profilePhotoPath = req.file ? req.file.path : null;
 
+ // Validazione dei dati usando Joi
       const { error } = registerProSchema.validate({
-        nome, cognome, città, email, password, provincia, telefono, categoria_servizi,
+        nome, cognome, citta, email, password, provincia, telefono, categoria_servizi,
         nome_azienda, p_iva, codiceFiscale, descrizioneProfessionista, tipo_abbonamento, costo,
         profilePhotoName, profilePhotoPath,
       });
 
       if (error) {
+        console.log('Validation Error:', error.details[0].message);
         return res.status(400).json({ error: error.details[0].message });
       }
 
@@ -74,44 +82,59 @@ const registerPro = {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const connection = await pool.getConnection();
+        try {
+          // Inizia una transazione
+          await connection.beginTransaction();
 
-        // Inserimento dei dati nella tabella users
-        const sqlInsertUser = 'INSERT INTO users (nome, cognome, città, email, password, telefono, tipo_abbonamento, user_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-        await connection.query(sqlInsertUser, [nome, cognome, città, email, hashedPassword, telefono, tipo_abbonamento, "professionista"]);
+          // Inserimento dei dati nella tabella users
+          const sqlInsertUser = 'INSERT INTO users (nome, cognome, email, password, telefono, user_type) VALUES (?, ?, ?, ?, ?, ?)';
+          await connection.query(sqlInsertUser, [nome, cognome, email, hashedPassword, telefono, "professionista"]);
 
-        // Recupera l'ID dell'utente appena creato
-        const [user] = await connection.query('SELECT LAST_INSERT_ID() AS id');
-        const userId = user[0].id;
+          // Recupera l'ID dell'utente appena creato
+          const [user] = await connection.query('SELECT LAST_INSERT_ID() AS id');
+          const userId = user[0].id;
 
-        // Inserimento dei dati nella tabella professionals
-        const sqlInsertProfessional = 'INSERT INTO professionals (user_id, nome_azienda, p_iva, codiceFiscale, categoria_servizi, città, provincia, descrizioneProfessionista) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-        await connection.query(sqlInsertProfessional, [userId, nome_azienda, p_iva, codiceFiscale, categoria_servizi, città, provincia, descrizioneProfessionista]);
+          // Inserimento dei dati nella tabella professionals
+          const sqlInsertProfessional = 'INSERT INTO professionals (user_id, nome_azienda, p_iva, codiceFiscale, categoria_servizi, citta, provincia, descrizioneProfessionista) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+          await connection.query(sqlInsertProfessional, [userId, nome_azienda, p_iva, codiceFiscale, categoria_servizi, citta, provincia, descrizioneProfessionista]);
 
-        // Inserimento dei dati nella tabella abbonamento
-        const sqlInsertAbbonamento = 'INSERT INTO abbonamento (professional_id, tipo, inizio_abbonamento, fine_abbonamento) VALUES (?, ?, ?, ?)';
-        await connection.query(sqlInsertAbbonamento, [userId, tipo_abbonamento, null, null]);
+          // Recupera l'ID del professional appena creato
+          const [professional] = await connection.query('SELECT LAST_INSERT_ID() AS id');
+          const professionalId = professional[0].id;
 
-        // Inserimento dei dati nella tabella abbonamento_prezzo
-        const sqlInsertAbbonamentoPrezzo = 'INSERT INTO abbonamento_prezzo (tipo, costo) VALUES (?, ?)';
-        await connection.query(sqlInsertAbbonamentoPrezzo, [tipo_abbonamento, costo]);
+          // Inserimento dei dati nella tabella abbonamento_prezzo
+          const sqlInsertAbbonamentoPrezzo = 'INSERT INTO abbonamento_prezzo (tipo, costo) VALUES (?, ?) ON DUPLICATE KEY UPDATE costo = VALUES(costo)';
+          await connection.query(sqlInsertAbbonamentoPrezzo, [tipo_abbonamento, costo]);
 
-        // Inserimento dei dati nella tabella profile_images
-        if (profilePhotoName && profilePhotoPath) {
-          const sqlInsertProfileImage = 'INSERT INTO profile_images (user_id, profilePhotoName, profilePhotoPath) VALUES (?, ?, ?)';
-          await connection.query(sqlInsertProfileImage, [userId, profilePhotoName, profilePhotoPath]);
-        }
+          // Inserimento dei dati nella tabella abbonamento
+          const sqlInsertAbbonamento = 'INSERT INTO abbonamento (professional_id, tipo, inizio_abbonamento, fine_abbonamento) VALUES (?, ?, ?, ?)';
+          await connection.query(sqlInsertAbbonamento, [professionalId, tipo_abbonamento, null, null]);
 
-        // Rilascia la connessione
-        connection.release();
-
-        // Genera il token JWT
-        jwt.sign({ nome, cognome, email, tipo_abbonamento }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
-          if (err) {
-            console.error('Errore durante la generazione del token JWT:', err);
-            return res.status(500).json({ error: 'Si è verificato un errore durante la generazione del token JWT' });
+          // Inserimento dei dati nella tabella profile_images
+          if (profilePhotoName && profilePhotoPath) {
+            const sqlInsertProfileImage = 'INSERT INTO profile_images (user_id, profilePhotoName, profilePhotoPath) VALUES (?, ?, ?)';
+            await connection.query(sqlInsertProfileImage, [userId, profilePhotoName, profilePhotoPath]);
           }
-          res.status(201).json({ message: 'Dati inseriti correttamente', token: token });
-        });
+
+          // Commit della transazione
+          await connection.commit();
+
+          // Genera il token JWT
+          jwt.sign({ id: userId, email }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
+            if (err) {
+              console.error('Errore durante la generazione del token JWT:', err);
+              return res.status(500).json({ error: 'Si è verificato un errore durante la generazione del token JWT' });
+            }
+            res.status(201).json({ message: 'Dati inseriti correttamente', token: token });
+          });
+        } catch (error) {
+           // Se c'è un errore, annulla tutte le operazioni della transazione
+          await connection.rollback();
+          throw error;
+        } finally {
+          // Rilascia la connessione
+          connection.release();
+        }
       } catch (error) {
         console.error('Errore durante l\'inserimento dei dati:', error);
         if (error.code === 'ER_DUP_ENTRY') {
@@ -125,3 +148,5 @@ const registerPro = {
 };
 
 module.exports = registerPro;
+
+/*L'errore ER_DUP_ENTRY è un codice di errore di MySQL che indica che stai tentando di inserire un valore duplicato in una colonna che ha un vincolo di unicità. Questo può accadere quando tenti di inserire un valore in una colonna UNIQUE o in una colonna che fa parte di una chiave primaria (PRIMARY KEY) e il valore esiste già in quella colonna. */
