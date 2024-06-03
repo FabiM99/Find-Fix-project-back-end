@@ -10,8 +10,8 @@ const profileCliente = {
   method: 'get',
   handler: [ authenticateToken, async (req, res) =>{
    try {
-    console.log('Authenticated user ID:', req.user.userId);
-     const [rows] = await pool.query('SELECT id, nome, cognome, email, user_type FROM users WHERE id = ?', [req.user.userId]);
+    console.log('Authenticated user ID:', req.user.id);
+     const [rows] = await pool.query('SELECT id, nome, cognome, email, user_type FROM users WHERE id = ?', [req.user.id]);
      const user = rows[0];
    
      console.log('User data:', user);
