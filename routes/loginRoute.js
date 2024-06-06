@@ -15,7 +15,7 @@ const loginRoute = {
   method: "post",
   handler: async (req, res) => {
     const { email, password } = req.body;
-    
+
     // Validazione dei dati della richiesta di login
     const { error } = loginSchema.validate(req.body);
 
@@ -30,7 +30,7 @@ const loginRoute = {
 
       // Se non esiste un utente con quell'email, restituisci uno stato 401 (Non autorizzato)
       if (!users || users.length === 0) {
-        return res.sendStatus(401);
+        return res.status(401).json({ error: 'Email non trovata' });
       }
 
       const user = users[0]; // Prendi il primo utente trovato (dovrebbe essercene solo uno)
@@ -38,16 +38,25 @@ const loginRoute = {
       // Confronta la password fornita dall'utente con quella nel database
       const isCorrect = await bcrypt.compare(password, user.password);
 
-      if (isCorrect) {
-        // Se la password è corretta, genera il token JWT
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '2d' });
-
-        // Invia il token come risposta
-        res.status(200).json({ token });
-      } else {
+      if (!isCorrect) {
         // Se la password non è corretta, restituisci uno stato 401 (Non autorizzato)
-        res.sendStatus(401);
+        return res.status(401).json({ error: 'Credenziali non valide' });
       }
+
+      // Se la password è corretta, genera il token JWT
+      const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, process.env.JWT_SECRET, { expiresIn: '2d' });
+
+      // Invia il token come risposta
+      return res.status(200).json({
+        message: 'Login effettuato con successo',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          user_type: user.user_type
+        }
+      });
+
     } catch (error) {
       console.error('Errore durante il login:', error);
       res.status(500).json({ error: 'Si è verificato un errore durante il login' });

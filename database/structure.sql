@@ -17,7 +17,7 @@ CREATE TABLE professionals (
     nome_azienda VARCHAR(100),
     p_iva VARCHAR(50) NOT NULL,
     codiceFiscale VARCHAR(50) NOT NULL,
-    categoria_servizi VARCHAR(100) NOT NULL,
+    categoria_servizi NOT NULL, --prende un JSON 
     citta VARCHAR(100) NOT NULL,
     provincia VARCHAR(100) NOT NULL,
     descrizioneProfessionista TEXT NOT NULL,

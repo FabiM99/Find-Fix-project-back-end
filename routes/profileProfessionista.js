@@ -22,7 +22,10 @@ const profileProfessionista = {
         'SELECT nome_azienda, p_iva, codiceFiscale, categoria_servizi, citta, provincia, descrizioneProfessionista FROM professionals WHERE user_id = ?', 
         [req.user.id]
       );
-      const professional = profRows[0];
+      const professional = {
+        ...profRows[0],
+        categoria_servizi: JSON.parse(profRows[0].categoria_servizi || '[]')
+      };
 
       if (!professional) {
         return res.status(404).json({ message: 'Professional details not found' });
@@ -32,16 +35,21 @@ const profileProfessionista = {
         'SELECT profilePhotoName, profilePhotoPath FROM profile_images WHERE user_id = ?', 
         [req.user.id]
       );
-      const profileImage = imageRows[0];
+      
 
       const profileData = {
         ...user,
         ...professional,
-        profileImage: profileImage ? {
-          profilePhotoName: profileImage.profilePhotoName,
-          profilePhotoPath: profileImage.profilePhotoPath
-        } : null
+        profileImage: imageRows.length > 0 ? `${req.protocol}://${req.get('host')}/uploads/${imageRows[0].profilePhotoName}` : null
       };
+
+/*==> ${req.protocol}: variabile che contiene il protocollo http o https
+  ==> ${req.get('host')} : recupera l'host dalla richiesta corrente (include dominio e porta) ---> example.com:3000
+  ==> /uploads/ : il percorso della cartella delle immagine salvate sul server
+  ==> ${imageRows[0].profilePhotoName} : il nome del file dellímmagine come salvato nel database 
+  questa èlàintera construzione dell'URL
+  
+  assicurarsi che il server abbia il middleware per i file statici. questo significa che qualsiasi file in quella cartella può essere ccessibile pubblicamente tramite un URL */
 
       console.log('Profile data:', profileData);
 

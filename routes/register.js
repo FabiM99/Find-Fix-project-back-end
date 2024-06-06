@@ -8,7 +8,7 @@ require('dotenv').config();
 // Configura multer per salvare le immagini
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // cartella dove verranno salvate le immagini
+    cb(null, process.env.UPLOAD_DIRECTORY || 'uploads/');  // cartella dove verranno salvate le immagini
   },
   filename: function (req, file, cb) {
      // Specifica il nome del file, aggiungendo un timestamp per renderlo unico
@@ -16,6 +16,7 @@ const storage = multer.diskStorage({
   }
 });
 
+//gestione upload
 const upload = multer({ storage: storage });
 
 // Definisce lo schema di validazione usando Joi
@@ -27,7 +28,7 @@ const registerProSchema = Joi.object({
   password: Joi.string().required(),
   provincia: Joi.string().required(),
   telefono: Joi.string().optional(),
-  categoria_servizi: Joi.string().required(),
+  categoria_servizi: Joi.array().items(Joi.string()).required(),
   nome_azienda: Joi.string().allow(null, '').optional(),
   p_iva: Joi.string().required(),
   codiceFiscale: Joi.string().required(),
@@ -46,6 +47,7 @@ const registerPro = {
     // Multer gestisce i file nel campo 'profilePhoto'
     upload.single('profilePhoto')(req, res, async (err) => {
       if (err) {
+        console.log('errore nel caricamento del file')
         return res.status(500).json({ error: 'Errore durante il caricamento del file' });
       }
       console.log('File caricato:', req.file); // Log per debug
@@ -58,6 +60,8 @@ const registerPro = {
        // Se il file è stato caricato, estrai il nome del file e il percorso
       const profilePhotoName = req.file ? req.file.filename : null;
       const profilePhotoPath = req.file ? req.file.path : null;
+
+      /* req.file ==> questo oggetto è disponibile grazie a multer quando un file viene caricato tramite una richiesta POST o PUT.  */
 
  // Validazione dei dati usando Joi
       const { error } = registerProSchema.validate({
@@ -88,15 +92,16 @@ const registerPro = {
 
           // Inserimento dei dati nella tabella users
           const sqlInsertUser = 'INSERT INTO users (nome, cognome, email, password, telefono, user_type) VALUES (?, ?, ?, ?, ?, ?)';
-          await connection.query(sqlInsertUser, [nome, cognome, email, hashedPassword, telefono, "professionista"]);
-
+          const [insertUserResult] = await connection.query(sqlInsertUser, [nome, cognome, email, hashedPassword, telefono, "professionista"]);
+          
+          console.log('Risultato inserimento utente:', insertUserResult);
           // Recupera l'ID dell'utente appena creato
           const [user] = await connection.query('SELECT LAST_INSERT_ID() AS id');
           const userId = user[0].id;
 
           // Inserimento dei dati nella tabella professionals
           const sqlInsertProfessional = 'INSERT INTO professionals (user_id, nome_azienda, p_iva, codiceFiscale, categoria_servizi, citta, provincia, descrizioneProfessionista) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-          await connection.query(sqlInsertProfessional, [userId, nome_azienda, p_iva, codiceFiscale, categoria_servizi, citta, provincia, descrizioneProfessionista]);
+          await connection.query(sqlInsertProfessional, [userId, nome_azienda, p_iva, codiceFiscale, JSON.stringify(categoria_servizi), citta, provincia, descrizioneProfessionista]);
 
           // Recupera l'ID del professional appena creato
           const [professional] = await connection.query('SELECT LAST_INSERT_ID() AS id');
@@ -120,9 +125,10 @@ const registerPro = {
           await connection.commit();
 
           // Genera il token JWT
-          jwt.sign({ id: userId, email }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
+          jwt.sign({ id: userId, email, user_type: 'professionista' }, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
             if (err) {
               console.error('Errore durante la generazione del token JWT:', err);
+              console.log('Si è verificato un errore durante la generazione del token JWT')
               return res.status(500).json({ error: 'Si è verificato un errore durante la generazione del token JWT' });
             }
             res.status(201).json({ message: 'Dati inseriti correttamente', token: token });
@@ -140,6 +146,7 @@ const registerPro = {
         if (error.code === 'ER_DUP_ENTRY') {
           res.status(409).json({ error: 'Email già in uso' });
         } else {
+          console.log('Si è verificato un errore durante l\'inserimento dei dati')
           res.status(500).json({ error: 'Si è verificato un errore durante l\'inserimento dei dati' });
         }
       }

@@ -2,15 +2,20 @@ const jwt = require('jsonwebtoken');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    console.log('Token mancante');
-    return res.sendStatus(401).json({ message: 'Token non fornito' });;
+  if (!authHeader) {
+    return res.status(401).json({ message: 'Header di autorizzazione mancante' });
   }
 
-  console.log('Token ricevuto:', token); // Log per il debug
-  console.log('Segreto JWT:', process.env.JWT_SECRET.trim()); // Verifica che il segreto JWT sia caricato correttamente
+  const tokenParts = authHeader.split(' ');
+  if (tokenParts.length !== 2 || tokenParts[0] !== 'Bearer') {
+    return res.status(401).json({ message: 'Formato dell\'header di autorizzazione non valido' });
+  }
+
+  const token = tokenParts[1];
+
+
+  //console.log('Token ricevuto:', token); // Log per il debug
+  //console.log('Segreto JWT:', process.env.JWT_SECRET.trim()); // Verifica che il segreto JWT sia caricato correttamente
 
   jwt.verify(token, process.env.JWT_SECRET.trim(), (err, user) => {
     if (err) {

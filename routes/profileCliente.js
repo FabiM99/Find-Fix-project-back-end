@@ -11,7 +11,9 @@ const profileCliente = {
   handler: [ authenticateToken, async (req, res) =>{
    try {
     console.log('Authenticated user ID:', req.user.id);
+
      const [rows] = await pool.query('SELECT id, nome, cognome, email, user_type FROM users WHERE id = ?', [req.user.id]);
+    
      const user = rows[0];
    
      console.log('User data:', user);
@@ -19,6 +21,7 @@ const profileCliente = {
      if(!user){
        return res.status(404).json({message: 'User not Found'});
      }
+     console.log('profile data:', user)
      res.json(user);
    } catch (error) {
      console.error('Error fetching profile:', error);
